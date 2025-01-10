@@ -29,17 +29,17 @@ jobs:
       - name: Initialize Terraform
         run: terraform init
 
-      - name: Apply Terraform Plan and Output Instance IPs
+      - name: Apply Terraform Plan and Generate Inventory
         run: |
           terraform plan -out=tfplan
           terraform apply -auto-approve tfplan
           terraform output -json > tf_outputs.json
-
-      - name: Upload Terraform Outputs as Artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: tf-outputs
-          path: tf_outputs.json
+          # Generate inventory.ini file directly from Terraform outputs
+          INSTANCE_IPS=$(jq -r '.ec2_instance_ips.value[]' < tf_outputs.json)
+          echo "[ec2_instances]" > inventory.ini
+          for ip in $INSTANCE_IPS; do
+            echo "$ip ansible_user=ec2-user" >> inventory.ini
+          done
 
   ansible:
     name: Configure and Deploy Application with Ansible
@@ -50,27 +50,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      - name: Download Terraform Outputs Artifact
-        uses: actions/download-artifact@v3
-        with:
-          name: tf-outputs
-
       - name: Add SSH key for Ansible
         uses: webfactory/ssh-agent@v0.5.3
         with:
           ssh-private-key: ${{ secrets.EC2_PRIVATE_KEY }}
 
-      - name: Install Ansible and Dependencies
-        run: |
-          sudo apt-get update && sudo apt-get install -y python3-pip jq ansible
-
-      - name: Generate Static Inventory File from Terraform Outputs
-        run: |
-          INSTANCE_IPS=$(jq -r '.ec2_instance_ips.value[]' < tf_outputs.json)
-          echo "[ec2_instances]" > inventory.ini
-          for ip in $INSTANCE_IPS; do
-            echo "$ip ansible_user=ec2-user" >> inventory.ini
-          done
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
