@@ -50,28 +50,24 @@ jobs:
 
       - name: Install dependencies for dynamic inventory
         run: |
-          sudo apt-get update && sudo apt-get install -y python3-pip
+          sudo apt-get update && sudo apt-get install -y python3-pip jq
           pip3 install boto3 botocore ansible amazon.aws
 
-      - name: Create dynamic inventory file
+      - name: Generate Static Inventory File from Terraform Outputs
         run: |
-          echo "
-          plugin: amazon.aws.aws_ec2
-          regions:
-            - us-east-1
-          filters:
-            instance-state-name: running
-          keyed_groups:
-            - key: tags.Name
-          hostnames:
-            - public-ip-address
-          compose:
-            ansible_user: ec2-user  # Add ansible_user for all hosts
-          " > aws_ec2.yml
+          INSTANCE_IPS=$(jq -r '.ec2_instance_ips.value[]' < ../terraform/tf_outputs.json)
+          echo "[ec2_instances]" > inventory.ini
+          for ip in $INSTANCE_IPS; do
+            echo "$ip ansible_user=ec2-user" >> inventory.ini
+          done
 
-      - name: Test dynamic inventory
-        run: ansible-inventory -i aws_ec2.yml --list
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
-      - name: Execute Ansible Playbook using dynamic inventory
+
+      - name: Execute Ansible Playbook using Inventory File
         run: |
-          ansible-playbook -i aws_ec2.yml deploy.yml --key-file ~/.ssh/id_rsa
+          ansible-playbook -i inventory.ini deploy.yml --key-file ~/.ssh/id_rsa
