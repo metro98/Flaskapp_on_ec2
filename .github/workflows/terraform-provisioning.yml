@@ -29,10 +29,11 @@ jobs:
       - name: Initialize Terraform
         run: terraform init
 
-      - name: Apply Terraform Plan
+      - name: Apply Terraform Plan and Output Instance IPs
         run: |
           terraform plan -out=tfplan
           terraform apply -auto-approve tfplan
+          terraform output -json > tf_outputs.json
 
   ansible:
     name: Configure and Deploy Application with Ansible
@@ -48,10 +49,9 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.EC2_PRIVATE_KEY }}
 
-      - name: Install dependencies for dynamic inventory
+      - name: Install Ansible and Dependencies
         run: |
-          sudo apt-get update && sudo apt-get install -y python3-pip jq
-          pip3 install boto3 botocore ansible amazon.aws
+          sudo apt-get update && sudo apt-get install -y python3-pip jq ansible
 
       - name: Generate Static Inventory File from Terraform Outputs
         run: |
@@ -66,7 +66,6 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
-
 
       - name: Execute Ansible Playbook using Inventory File
         run: |
