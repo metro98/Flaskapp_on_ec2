@@ -35,8 +35,8 @@ jobs:
           terraform apply -auto-approve tfplan
           terraform output -json > tf_outputs.json
 
-      - name: Generate Inventory File Using Shell Script
-        run: scripts/generate_inventory.sh
+      - name: Generate Inventory File Using Python
+        run: python3 generate_inventory.py
 
         
   ansible:
