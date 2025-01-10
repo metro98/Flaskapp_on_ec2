@@ -35,34 +35,10 @@ jobs:
           terraform apply -auto-approve tfplan
           terraform output -json > tf_outputs.json
 
-      - name: Generate Inventory File Using Python Script
-        run: |
-          python3 <<EOF
-import json
+      - name: Generate Inventory File Using Shell Script
+        run: scripts/generate_inventory.sh
 
-def generate_inventory(terraform_output_file, inventory_file):
-    try:
-        # Read the Terraform output JSON file
-        with open(terraform_output_file, 'r') as tf_file:
-            terraform_outputs = json.load(tf_file)
-
-        # Extract the IP addresses from the Terraform output
-        instance_ips = terraform_outputs.get('ec2_instance_ips', {}).get('value', [])
-
-        # Write the inventory file
-        with open(inventory_file, 'w') as inv_file:
-            inv_file.write("[ec2_instances]\n")
-            for ip in instance_ips:
-                inv_file.write(f"{ip} ansible_user=ec2-user\n")
-
-        print(f"Inventory file '{inventory_file}' generated successfully.")
-    except Exception as e:
-        print(f"Error generating inventory file: {e}")
-
-# Generate inventory.ini from tf_outputs.json
-generate_inventory('tf_outputs.json', 'inventory.ini')
-EOF
-
+        
   ansible:
     name: Configure and Deploy Application with Ansible
     runs-on: ubuntu-latest
