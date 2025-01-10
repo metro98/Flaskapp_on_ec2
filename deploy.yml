@@ -1,0 +1,19 @@
+- hosts: all
+  become: yes
+
+  tasks:
+    - name: Install Docker
+      yum:
+        name: docker
+        state: present
+
+    - name: Start Docker service
+      service:
+        name: docker
+        state: started
+
+    - name: Pull Docker image (Flask app)
+      command: docker pull alioth729/pythonapp:latest
+
+    - name: Run Flask app container
+      command: docker run -d -p 80:5000 alioth729/pythonapp:latest

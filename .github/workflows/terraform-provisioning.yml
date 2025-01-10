@@ -48,10 +48,30 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.EC2_PRIVATE_KEY }}
 
-      - name: Install Ansible
+      - name: Install dependencies for dynamic inventory
         run: |
-          sudo apt-get update && sudo apt-get install -y ansible
+          sudo apt-get update && sudo apt-get install -y python3-pip
+          pip3 install boto3 botocore ansible amazon.aws
 
-      - name: Execute Ansible Playbook
+      - name: Create dynamic inventory file
         run: |
-          ansible-playbook -i inventory.ini deploy.yml --key-file ~/.ssh/id_rsa
+          echo "
+          plugin: amazon.aws.aws_ec2
+          regions:
+            - us-east-1
+          filters:
+            instance-state-name: running
+          keyed_groups:
+            - key: tags.Name
+          hostnames:
+            - public-ip-address
+          compose:
+            ansible_user: ec2-user  # Add ansible_user for all hosts
+          " > aws_ec2.yml
+
+      - name: Test dynamic inventory
+        run: ansible-inventory -i aws_ec2.yml --list
+
+      - name: Execute Ansible Playbook using dynamic inventory
+        run: |
+          ansible-playbook -i aws_ec2.yml deploy.yml --key-file ~/.ssh/id_rsa
